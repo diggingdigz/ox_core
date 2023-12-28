@@ -3,6 +3,19 @@ local statuses = {}
 ---@type table<string, number>
 local currentStatus = {}
 
+RegisterNetEvent('ox_status:add')
+AddEventHandler('ox_status:add', function(name, value)
+    OxPlayer:addStatus(name, value)
+end)
+RegisterNetEvent('ox_status:minus')
+AddEventHandler('ox_status:minus', function(name, value)
+    OxPlayer:removeStatus(name, value)
+end)
+RegisterNetEvent('ox_status:set')
+AddEventHandler('ox_status:set', function(name, value)
+    OxPlayer:setStatus(name, value)
+end)
+
 ---@param name string
 ---@return number
 function OxPlayer:getStatus(name)
