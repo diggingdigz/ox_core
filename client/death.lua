@@ -29,112 +29,179 @@ function onPlayerDeath()
     TriggerEvent('ox_inventory:disarm')
     TriggerEvent('ox:playerDeath', true)
     TriggerServerEvent('ox:playerDeath', true)
+    OxPlayer:setStatus('hunger', 0)
+    OxPlayer:setStatus('thirst', 0)
+    OxPlayer:setStatus('stress', 0)
+    OxPlayer:setStatus('drunk', 0)
+    OxPlayer:setStatus('drugs', 0)
     PlaySoundFrontend(-1, 'MP_Flash', 'WastedSounds', false)
     ShakeGameplayCam('DEATH_FAIL_IN_EFFECT_SHAKE', 1.0)
 
     Wait(1900)
 
     local wasted = true
-    CreateThread(function()
-        Wait(4100)
-        wasted = false
-    end)
+    local waiting = false
+    lib.callback('dd_core:Check_JobCount', false, function(returnJob)
+        if returnJob > 0 then
+            CreateThread(function () 
+                local counter = 60
+                while counter > 0 do 
+                    counter = counter - 1
+                    Wait(1000)
+                    if wasted then
+                        lib.showTextUI("You are Incapacitated.  \n Wait for EMS.  \n Respawn in **"..counter.."** sec/s", {
+                            position = "right-center",
+                            icon = 'skull',
+                            iconColor ='red',
+                            iconAnimation = 'beat',
+                            alignIcon = 'top',
+                            style = {
+                                borderRadius = 10,
+                                backgroundColor = 'black',
+                                color = 'white'
+                            }
+                        })
+                    end
+                end
+                wasted = false
+                waiting = true
+                lib.hideTextUI()
+            end)
+        else
+            CreateThread(function()
+                Wait(4100)
+                wasted = false
+            end)
+        end
+    
+    -- CreateThread(function()
+    --     Wait(4100)
+    --     wasted = false
+    -- end)
 
-    BeginScaleformMovieMethod(scaleform, 'SHOW_SHARD_WASTED_MP_MESSAGE')
-    BeginTextCommandScaleformString('STRING')
-    AddTextComponentSubstringPlayerName('~r~wasted')
-    EndTextCommandScaleformString()
-    EndScaleformMovieMethod()
+        BeginScaleformMovieMethod(scaleform, 'SHOW_SHARD_WASTED_MP_MESSAGE')
+        BeginTextCommandScaleformString('STRING')
+        AddTextComponentSubstringPlayerName('~r~wasted')
+        EndTextCommandScaleformString()
+        EndScaleformMovieMethod()
 
-    PlaySoundFrontend(-1, 'PROPERTY_PURCHASE', 'HUD_AWARDS', false)
+        PlaySoundFrontend(-1, 'PROPERTY_PURCHASE', 'HUD_AWARDS', false)
 
-    while wasted do
-        DisableFirstPersonCamThisFrame()
-        DrawScaleformMovieFullscreen(scaleform, 255, 255, 255, 255, 0)
-        Wait(0)
-    end
-
-    CreateThread(function()
-        while PlayerIsDead do
+        while wasted do
             DisableFirstPersonCamThisFrame()
+            DrawScaleformMovieFullscreen(scaleform, 255, 255, 255, 255, 0)
             Wait(0)
         end
-    end)
 
-    local coords = GetEntityCoords(cache.ped) --[[@as vector]]
-    NetworkResurrectLocalPlayer(coords.x, coords.y, coords.z, GetEntityHeading(cache.ped), false, false)
-    cache.ped = PlayerPedId()
-
-    if cache.vehicle then
-        SetPedIntoVehicle(cache.ped, cache.vehicle, cache.seat)
-    end
-
-    SetEntityInvincible(cache.ped, true)
-    SetEntityHealth(cache.ped, 100)
-    SetEveryoneIgnorePlayer(cache.playerId, true)
-
-    local timeout = 50
-    local bleedOut
-
-    while PlayerIsDead do
-        local anim = cache.vehicle and anims[2] or anims[1]
-
-        if not IsEntityPlayingAnim(cache.ped, anim[1], anim[2], 3) then
-            TaskPlayAnim(cache.ped, anim[1], anim[2], 50.0, 8.0, -1, 1, 1.0, false, false, false)
-        end
-
-        timeout -= 1
-        if timeout < 1 then
-            PlayerIsDead = false
-            bleedOut = true
-        end
-
-        Wait(200)
-    end
-
-    coords = vec4(GetEntityCoords(cache.ped).xyz, GetEntityHeading(cache.ped)) --[[@as vector]]
-
-    if bleedOut then
-        local closest, distance = {}
-
-        for i = 1, #hospitals do
-            local hospital = hospitals[i]
-            distance = #(coords - hospital)
-
-            if not next(closest) or distance < closest.dist then
-                closest.coords = hospital
-                closest.dist = distance
+        CreateThread(function()
+            while PlayerIsDead do
+                DisableFirstPersonCamThisFrame()
+                Wait(0)
             end
+        end)
+
+        local coords = GetEntityCoords(cache.ped) --[[@as vector]]
+        NetworkResurrectLocalPlayer(coords.x, coords.y, coords.z, GetEntityHeading(cache.ped), false, false)
+        cache.ped = PlayerPedId()
+
+        if cache.vehicle then
+            SetPedIntoVehicle(cache.ped, cache.vehicle, cache.seat)
         end
 
-        coords = closest.coords --[[@as vector]]
-    end
+        SetEntityInvincible(cache.ped, true)
+        SetEntityHealth(cache.ped, 100)
+        SetEveryoneIgnorePlayer(cache.playerId, true)
+        OxPlayer:setStatus('hunger', 75)
+        OxPlayer:setStatus('thirst', 75)
+        local timeout = 10
+        local bleedOut
 
-    DoScreenFadeOut(800)
+        while PlayerIsDead do
+            local anim = cache.vehicle and anims[2] or anims[1]
 
-    while not IsScreenFadedOut() do
-        Wait(50)
-    end
+            if not IsEntityPlayingAnim(cache.ped, anim[1], anim[2], 3) then
+                TaskPlayAnim(cache.ped, anim[1], anim[2], 50.0, 8.0, -1, 1, 1.0, false, false, false)
+            end
+            if returnJob > 0  and waiting then
+                lib.showTextUI("You are Incapacitated.  \n Press **[E]** to respawn  \n or wait for EMS", {
+                    position = "right-center",
+                    icon = 'skull',
+                    iconColor ='red',
+                    iconAnimation = 'beat',
+                    alignIcon = 'top',
+                    style = {
+                        borderRadius = 10,
+                        backgroundColor = 'black',
+                        color = 'white'
+                    }
+                })
 
-    NetworkResurrectLocalPlayer(coords.x, coords.y, coords.z, coords.w, false, false)
-    cache.ped = PlayerPedId()
+                lib.addKeybind({
+                    name = 'respawn',
+                    description = 'Force Respawn',
+                    defaultKey = 'E',
+                    onPressed = function(self)
+                        PlayerIsDead = false
+                        bleedOut = true
+                        waiting = false
+                        lib.hideTextUI()
+                    end
+                })
+            else
+                timeout -= 1
+                if timeout < 1 then
+                    PlayerIsDead = false
+                    bleedOut = true
+                end
+            end
+            Wait(1000)
+        end
 
-    if cache.vehicle and not bleedOut then
-        SetPedIntoVehicle(cache.ped, cache.vehicle, cache.seat)
-    end
+        coords = vec4(GetEntityCoords(cache.ped).xyz, GetEntityHeading(cache.ped)) --[[@as vector]]
 
-    ClearPedBloodDamage(cache.ped)
-    SetEntityInvincible(cache.ped, false)
-    SetEveryoneIgnorePlayer(cache.playerId, false)
-    AnimpostfxStop('DeathFailOut')
-    Wait(2000)
-    DoScreenFadeIn(800)
-    ClearPedTasks(cache.ped)
+        if bleedOut then
+            local closest, distance = {}
 
-    playerState.dead = false
+            for i = 1, #hospitals do
+                local hospital = hospitals[i]
+                distance = #(coords - hospital)
 
-    TriggerEvent('ox:playerDeath', false)
-    TriggerServerEvent('ox:playerDeath', false)
+                if not next(closest) or distance < closest.dist then
+                    closest.coords = hospital
+                    closest.dist = distance
+                end
+            end
+
+            coords = closest.coords --[[@as vector]]
+        end
+
+        DoScreenFadeOut(800)
+
+        while not IsScreenFadedOut() do
+            Wait(50)
+        end
+
+        NetworkResurrectLocalPlayer(coords.x, coords.y, coords.z, coords.w, false, false)
+        cache.ped = PlayerPedId()
+
+        if cache.vehicle and not bleedOut then
+            SetPedIntoVehicle(cache.ped, cache.vehicle, cache.seat)
+        end
+
+        ClearPedBloodDamage(cache.ped)
+        SetEntityInvincible(cache.ped, false)
+        SetEveryoneIgnorePlayer(cache.playerId, false)
+        AnimpostfxStop('DeathFailOut')
+        Wait(2000)
+        DoScreenFadeIn(800)
+        ClearPedTasks(cache.ped)
+
+        playerState.dead = false
+
+        TriggerEvent('ox:playerDeath', false)
+        TriggerServerEvent('ox:playerDeath', false)
+        TriggerEvent('dkl_ems:healing', 60)
+    end, 'ems')
 end
 
 local function startDeathLoop()
